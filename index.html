@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>שעון מחזורי מדויק</title>
+  <style>
+    body {
+      margin: 0;
+      background: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    canvas {
+      background: radial-gradient(circle, #305080, #80a060);
+    }
+  </style>
+</head>
+<body>
+<canvas id="clock" width="800" height="800"></canvas>
+<script type="module">
+import Decimal from './decimal.js';
+
+const canvas = document.getElementById("clock");
+const ctx = canvas.getContext("2d");
+const centerX = canvas.width / 2;
+const centerY = canvas.height / 2;
+
+function baseConversion(num) {
+  let res = new Decimal(num);
+  const digits = [];
+  let count = 0;
+  while (res.gt(12)) {
+    res = res.div(12);
+    count++;
+  }
+  for (let i = 0; i < count + 1; i++) {
+    const d = res.floor();
+    digits.push(d.toNumber());
+    res = res.minus(d).times(12);
+  }
+  for (let i = digits.length - 1; i > 0; i--) {
+    if (digits[i] === 0) {
+      digits[i] = 12;
+      digits[i - 1] -= 1;
+    }
+  }
+  if (digits[0] === 0) digits.shift();
+  return digits;
+}
+
+function drawCircleText(text, radius, angleOffset, color, fontSize) {
+  ctx.font = `${fontSize}px Arial`;
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const len = text.length;
+  for (let i = 0; i < len; i++) {
+    const angle = (Math.PI * 2 * i / len) + angleOffset;
+    const x = centerX + Math.cos(angle) * radius;
+    const y = centerY + Math.sin(angle) * radius;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle + Math.PI / 2);
+    ctx.fillText(text[i], 0, 0);
+    ctx.restore();
+  }
+}
+
+function drawHands(hours, minutes, seconds) {
+  const drawHand = (length, angle, color, width) => {
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(
+      centerX + Math.cos(angle) * length,
+      centerY + Math.sin(angle) * length
+    );
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.stroke();
+  };
+  drawHand(200, (Math.PI * 2 * seconds / 72) - Math.PI / 2, "blue", 2);
+  drawHand(170, (Math.PI * 2 * minutes / 54) - Math.PI / 2, "green", 4);
+  drawHand(140, (Math.PI * 2 * hours / 24) - Math.PI / 2, "red", 6);
+}
+
+function computeTimeUnits() {
+  const secondsSinceBigBang = new Decimal('466576408532613321.5304043206646');
+  const secondMultiplier = new Decimal('285738202.060366731702559').div('299792458');
+  const reference = new Date('2020-12-31T23:59:59Z');
+  const now = new Date();
+  const delta = new Decimal((now.getTime() - reference.getTime()) / 1000);
+  let total = secondsSinceBigBang.plus(delta).times(secondMultiplier);
+
+  let totalMin = total.div(72);
+  const seconds = totalMin.minus(totalMin.floor()).times(72).toDecimalPlaces(9);
+
+  let totalHour = totalMin.floor().div(54);
+  const minutes = totalHour.minus(totalHour.floor()).times(54).toDecimalPlaces(9);
+
+  let totalDay = totalHour.floor().div(24);
+  const hours = totalDay.minus(totalDay.floor()).times(24).toDecimalPlaces(9);
+
+  let totalMonth = totalDay.floor().div(36);
+  const days = totalMonth.minus(totalMonth.floor()).times(36).plus(1).toDecimalPlaces(9);
+
+  let totalYear = totalMonth.floor().div(12);
+  const months = totalYear.minus(totalYear.floor()).times(12).plus(1).toDecimalPlaces(9);
+
+  const years = totalYear.floor();
+
+  return {
+    seconds: baseConversion(seconds),
+    minutes: baseConversion(minutes),
+    hours: baseConversion(hours),
+    days: baseConversion(days),
+    months: baseConversion(months),
+    years: baseConversion(years),
+    raw: { seconds, minutes, hours }
+  };
+}
+
+function drawClock() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const time = computeTimeUnits();
+  drawCircleText("123456789AB", 380, 0, "brown", 20);
+  drawCircleText("123456789AB", 300, 0.3, "green", 18);
+  drawCircleText("123456789AB", 220, 0.6, "blue", 16);
+  drawHands(time.raw.hours.toNumber(), time.raw.minutes.toNumber(), time.raw.seconds.toNumber());
+  requestAnimationFrame(drawClock);
+}
+
+drawClock();
+</script>
+</body>
+</html>
